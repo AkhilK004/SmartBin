@@ -40,3 +40,12 @@ Dated log of every assumption (CLAUDE.md §11.6). Never present these as real da
 | V | A bin's own `fill_rate_pct_per_hour` stays at its seed value; only the zone rate is learned from history (mean bin slope since last emptying, at least 3 bins with 12 h of rising readings). | `server/src/domain/frequency.ts` |
 | W | `hours_left` uses the first calendar date after today, so on a due day it is the collection after today's. | `server/src/domain/classify.ts` |
 | X | Derived bin fields are recomputed when a bin changes or state is requested, not on a timer; they can lag until the next reading. | `server/src/pipeline.ts` |
+
+## 2026-10-26 (Phase 4)
+
+| ID | Assumption | Where |
+|---|---|---|
+| Y | The optimizer has no shift-length time dimension (not in CLAUDE.md). Duration is reported after solving: road time + 60 s per bin + 300 s per dump-yard visit. | `optimizer/app/common.py` |
+| Z | Baseline = nearest-neighbour order from the depot, split into contiguous chunks per vehicle in proportion to capacity, with dump trips when full (open items B, C: the missed-overflow replay is Phase 6/7). | `optimizer/app/baseline.py` |
+| AA | The model has at most 5 dump-yard copies per vehicle; repeated or leading dump stops are removed from the output. | `optimizer/app/solver.py` |
+| AB | A must-visit bin heavier than the largest vehicle returns HTTP 422 `infeasible`; it is never dropped. | `optimizer/app/main.py` |

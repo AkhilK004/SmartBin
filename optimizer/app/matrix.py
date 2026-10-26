@@ -23,7 +23,7 @@ def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     return 2 * EARTH_RADIUS_M * math.asin(math.sqrt(a))
 
 
-def _fallback(points: list[tuple[float, float]]) -> Matrix:
+def fallback_matrix(points: list[tuple[float, float]]) -> Matrix:
     speed_ms = settings.TRUCK_SPEED_KMH * 1000 / 3600
     dist = [
         [round(haversine_m(a[0], a[1], b[0], b[1]) * settings.HAVERSINE_ROAD_FACTOR) for b in points]
@@ -36,9 +36,10 @@ def _fallback(points: list[tuple[float, float]]) -> Matrix:
 def build_matrix(
     points: list[tuple[float, float]],
     client: httpx.Client | None = None,
-    base_url: str = settings.OSRM_URL,
+    base_url: str | None = None,
 ) -> Matrix:
     """points are (lat, lng). Returns integer metres and seconds."""
+    base_url = base_url or settings.OSRM_URL
     own = client is None
     client = client or httpx.Client(timeout=settings.OSRM_TIMEOUT_S)
     try:
@@ -52,7 +53,7 @@ def build_matrix(
         dur = [[round(v) for v in row] for row in body["durations"]]
         return Matrix(dist, dur, "osrm")
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
-        return _fallback(points)
+        return fallback_matrix(points)
     finally:
         if own:
             client.close()
