@@ -5,6 +5,7 @@ import type { HistoryStore } from "../src/adapters/types.js";
 import type { PlanDeps } from "../src/domain/dispatch.js";
 import { initialZones } from "../src/domain/frequency.js";
 import { createPipeline } from "../src/pipeline.js";
+import { SavingsService } from "../src/savings.js";
 import { SettingsStore } from "../src/settings.js";
 import { localDate } from "../src/time.js";
 import { buildApp, type AppContext } from "../src/routes.js";
@@ -55,7 +56,14 @@ export function makeWorld(opts: { clock?: () => Date; fetchImpl?: typeof fetch; 
   const settings = new SettingsStore();
   const pipeline = createPipeline({ bus, store, history, settings, clock });
   const planDeps = opts.planDeps ?? failingPlanDeps;
-  const ctx: AppContext = { bus, store, history, planDeps, settings, pipeline, sim: { speed: 1 }, clock, fetchImpl: opts.fetchImpl };
+  const holder: { ctx?: AppContext } = {};
+  const savings = new SavingsService(
+    store,
+    pipeline.events,
+    () => holder.ctx?.simControl?.status().overflows_missed ?? { by_date: {}, total: { baseline: 0, optimized: 0 } },
+  );
+  const ctx: AppContext = { bus, store, history, planDeps, settings, pipeline, savings, sim: { speed: 1 }, clock, fetchImpl: opts.fetchImpl };
+  holder.ctx = ctx;
   const server: Server = createServer(buildApp(ctx));
   const socket = attachSocket(server, ctx, pipeline);
   return { bus, store, history, ctx, pipeline, server, socket };

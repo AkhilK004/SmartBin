@@ -5,6 +5,7 @@ import type { PlanDeps } from "./domain/dispatch.js";
 import { parseIngest } from "./http/ingest.js";
 import { runDailyJob, runFrequencyJob } from "./jobs.js";
 import type { Pipeline } from "./pipeline.js";
+import type { SavingsService } from "./savings.js";
 import { settingsPatchSchema, type SettingsStore } from "./settings.js";
 import type { SimControl } from "./sim/engine.js";
 import { z } from "zod";
@@ -16,6 +17,7 @@ export interface AppContext {
   planDeps: PlanDeps;
   settings: SettingsStore;
   pipeline: Pipeline;
+  savings: SavingsService;
   sim: { speed: number };
   /** Present when the simulator is on (SIM != off). */
   simControl?: SimControl;
@@ -31,7 +33,7 @@ export function buildState(ctx: AppContext) {
     trucks: ctx.store.getTrucks(),
     sites: ctx.store.getSites(),
     plan: ctx.store.getPlan(),
-    savings: null,
+    savings: ctx.savings.current(),
     alerts: ctx.store.getAlerts(),
     settings: ctx.settings.get(),
     sim: { speed: ctx.sim.speed, now: (ctx.clock?.() ?? new Date()).toISOString() },
@@ -49,6 +51,15 @@ export function buildApp(ctx: AppContext) {
 
   app.get("/state", (_req, res) => {
     res.json(buildState(ctx));
+  });
+
+  app.get("/savings", (_req, res) => {
+    const s = ctx.savings.current();
+    if (!s) {
+      res.status(404).json({ error: "no comparable plan yet; run POST /jobs/daily" });
+      return;
+    }
+    res.json(s);
   });
 
   app.get("/settings", (_req, res) => {

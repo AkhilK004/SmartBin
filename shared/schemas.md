@@ -252,6 +252,8 @@ Same request shape; every stop is treated as mandatory and ordered in street ord
 
 The numbers above are examples of shape only. Real values are computed from simulated data (CLAUDE.md §10).
 
+`date` is the latest plan date. `stops`, `km` and `fuel_l` are that plan's optimized routes (primary and secondary, bin stops only, dump-yard visits excluded) against the fixed baseline (`plan.baseline`: every bin of every due zone, primary compactors only). `fuel_l` = km x the assumed L/km of the truck kind. `overflows_missed` is the simulator's count for `date` (real schedule vs the fixed-baseline replay). `cumulative` sums every recorded plan date (re-running a day replaces that day); its `overflows_missed` counts every day, including days without a plan. A plan with an optimizer error or without a baseline is not recorded. The figures change after a plan and whenever the simulator's overflow counts change, so they are final at the end of the day.
+
 ---
 
 ## Alert
@@ -296,6 +298,7 @@ The numbers above are examples of shape only. Real values are computed from simu
 | POST | `/jobs/frequency` | none | recompute zone rates from history and rebuild calendars; returns `Zone[]` |
 | POST | `/jobs/daily` | none | roll calendars to today, build and publish the daily plan; 200 with the `Plan`, 502 with the `Plan` (its `error` set) if the optimizer failed |
 | GET | `/state` | none | full snapshot (same payload as `state:init`) |
+| GET | `/savings` | none | current `Savings`; 404 until a comparable plan exists |
 | GET | `/settings` | none | see Settings |
 | PUT | `/settings` | partial Settings | triggers re-plan on next `/jobs/daily` |
 | GET | `/sim` | none | `{ speed, now, overflows_missed: { by_date: { "YYYY-MM-DD": { baseline, optimized } }, total: { baseline, optimized } } }` |

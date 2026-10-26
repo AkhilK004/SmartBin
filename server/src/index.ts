@@ -10,6 +10,7 @@ import { SimClock } from "./sim/clock.js";
 import { SimEngine } from "./sim/engine.js";
 import { defaultPlanDeps } from "./jobs.js";
 import { createPipeline } from "./pipeline.js";
+import { SavingsService } from "./savings.js";
 import { buildApp, type AppContext } from "./routes.js";
 import { SITES, seedBins, seedFleet, seedZoneBases } from "./seed.js";
 import { attachSocket } from "./socket.js";
@@ -30,7 +31,13 @@ const settings = new SettingsStore();
 const simClock = config.sim.enabled ? new SimClock() : undefined;
 const clock = simClock ? () => simClock.now() : undefined;
 const pipeline = createPipeline({ bus, store, history, settings, clock });
-const ctx: AppContext = { bus, store, history, planDeps: defaultPlanDeps(), settings, pipeline, sim: { speed: 1 }, clock };
+let engine: SimEngine | undefined;
+const savings = new SavingsService(
+  store,
+  pipeline.events,
+  () => engine?.status().overflows_missed ?? { by_date: {}, total: { baseline: 0, optimized: 0 } },
+);
+const ctx: AppContext = { bus, store, history, planDeps: defaultPlanDeps(), settings, pipeline, savings, sim: { speed: 1 }, clock };
 const server = createServer(buildApp(ctx));
 const socket = attachSocket(server, ctx, pipeline);
 
@@ -51,7 +58,6 @@ const tasks = simClock
 const sweep = setInterval(() => pipeline.sweepOffline(), config.alerts.readingIntervalS * 1000);
 const snap = setInterval(() => void saveSnapshot(config.snapshotPath, store.snapshot()), config.snapshotIntervalMs);
 
-let engine: SimEngine | undefined;
 server.listen(config.port, () => {
   console.log(`server listening on :${config.port}`);
   if (!simClock) return;

@@ -3,7 +3,7 @@ import { Server } from "socket.io";
 import { config } from "./config.js";
 import type { Pipeline } from "./pipeline.js";
 import { buildState, type AppContext } from "./routes.js";
-import type { Alert, Bin, Plan } from "./types.js";
+import type { Alert, Bin, Plan, Savings } from "./types.js";
 
 export function attachSocket(httpServer: HttpServer, ctx: AppContext, pipeline: Pipeline) {
   const io = new Server(httpServer, { cors: { origin: true } });
@@ -19,6 +19,7 @@ export function attachSocket(httpServer: HttpServer, ctx: AppContext, pipeline: 
     io.emit("trucks:update", t.trucks);
     io.emit("sim:update", t.sim);
   });
+  pipeline.events.on("savings:new", (s: Savings) => io.emit("savings:update", s));
   pipeline.events.on("plan:new", (plan: Plan) => {
     io.emit("plan:update", plan);
     io.emit("routes:update", plan.routes);

@@ -1,6 +1,6 @@
 // Interfaces business logic depends on (CLAUDE.md §6). Implementations: local.ts now, aws.ts in Phase 10.
 
-import type { Alert, BinBase, Plan, SensorReading, Site, Truck, Zone } from "../types.js";
+import type { Alert, BinBase, LedgerDay, Plan, SensorReading, Site, Truck, Zone } from "../types.js";
 
 export interface MessageBus {
   publish(reading: SensorReading): Promise<void>;
@@ -14,6 +14,7 @@ export interface Snapshot {
   sites: Site[];
   alerts: Alert[];
   plan?: Plan | null;
+  ledger?: Record<string, LedgerDay>;
 }
 
 export interface StateStore {
@@ -29,6 +30,8 @@ export interface StateStore {
   addAlert(alert: Alert): void;
   getPlan(): Plan | null;
   setPlan(plan: Plan): void;
+  getLedger(): Record<string, LedgerDay>;
+  setLedgerDay(date: string, day: LedgerDay): void;
   snapshot(): Snapshot;
   restore(snapshot: Snapshot): void;
 }

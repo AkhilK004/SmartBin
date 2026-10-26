@@ -163,6 +163,33 @@ export interface OptimizeResponse {
   decisions: string[];
 }
 
+// ---- savings (shared/schemas.md) ----
+
+export interface Metric {
+  baseline: number;
+  optimized: number;
+}
+
+/** What one plan date contributes; overflows come live from the simulator. */
+export interface LedgerDay {
+  stops: Metric;
+  km: Metric;
+  fuel_l: Metric;
+}
+
+export interface Savings {
+  date: string;
+  stops: Metric;
+  km: Metric;
+  fuel_l: Metric;
+  overflows_missed: Metric;
+  /** Fuel is distance x an assumed L/km factor (CLAUDE.md section 10). */
+  fuel_is_estimate: true;
+  /** Every figure is computed from simulated data, not measured. */
+  simulated: true;
+  cumulative: { stops: Metric; km: Metric; fuel_l: Metric; overflows_missed: Metric };
+}
+
 // ---- daily plan ----
 
 export interface PlanRoute {

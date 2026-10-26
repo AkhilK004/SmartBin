@@ -81,3 +81,12 @@ Dated log of every assumption (CLAUDE.md §11.6). Never present these as real da
 | AQ | Missed-overflow baseline replay: on a zone's fixed collection day, at 06:00 local, every bin of the zone is emptied at once (no travel time, no deferral, no secondary trucks); overflow episodes are counted once per bin until it is emptied. | `sim/engine.ts` |
 | AR | Truck runs are not saved in the snapshot; after a restart every truck starts idle at the depot. Overflow counters are in memory only. | `sim/engine.ts` |
 | AS | Trucks move at a constant 22 km/h along the OSRM geometry, scaled so the route length equals the sum of the OSRM leg distances. | `sim/trucks.ts` |
+
+## 2026-10-27 (Phase 7)
+
+| ID | Assumption | Where |
+|---|---|---|
+| AT | Savings compare the plan (planned stops and road km), not what the trucks later drove. Dump-yard visits are not counted as stops. | `server/src/domain/savings.ts` |
+| AU | The fixed baseline burns fuel as primary compactors only (0.35 L/km), because a fixed schedule has no secondary trucks. | `server/src/domain/savings.ts` |
+| AV | The cumulative stops, km and fuel cover plan dates recorded since the ledger started; the ledger is saved in the snapshot. Overflow counts are in memory only (AR), so after a restart the cumulative overflows restart at zero while the other totals continue. | `server/src/savings.ts` |
+| AW | The baseline route length comes from the nearest-neighbour baseline (assumption Z), so the km figure is only as good as that heuristic. | `optimizer/app/baseline.py` |

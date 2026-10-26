@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { config } from "../config.js";
-import type { Alert, BinBase, Plan, SensorReading, Site, Truck, Zone } from "../types.js";
+import type { Alert, BinBase, LedgerDay, Plan, SensorReading, Site, Truck, Zone } from "../types.js";
 import type { Emptying, HistoryStore, MessageBus, Snapshot, StateStore } from "./types.js";
 
 export class LocalBus implements MessageBus {
@@ -26,6 +26,7 @@ export class MemoryStore implements StateStore {
   private sites: Site[] = [];
   private alerts: Alert[] = [];
   private plan: Plan | null = null;
+  private ledger: Record<string, LedgerDay> = {};
 
   constructor(initial?: Snapshot) {
     if (initial) this.restore(initial);
@@ -42,6 +43,8 @@ export class MemoryStore implements StateStore {
   getAlerts = () => this.alerts;
   getPlan = () => this.plan;
   setPlan = (plan: Plan) => void (this.plan = plan);
+  getLedger = () => this.ledger;
+  setLedgerDay = (date: string, day: LedgerDay) => void (this.ledger[date] = day);
 
   addAlert(alert: Alert): void {
     this.alerts.push(alert);
@@ -56,6 +59,7 @@ export class MemoryStore implements StateStore {
       sites: this.sites,
       alerts: this.alerts,
       plan: this.plan,
+      ledger: this.ledger,
     };
   }
 
@@ -66,6 +70,7 @@ export class MemoryStore implements StateStore {
     this.sites = s.sites;
     this.alerts = s.alerts;
     this.plan = s.plan ?? null;
+    this.ledger = s.ledger ?? {};
   }
 }
 
