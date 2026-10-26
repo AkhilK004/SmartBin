@@ -1,0 +1,38 @@
+services:
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    command: osrm-routed --algorithm mld /data/gwalior.osrm
+    volumes:
+      - ./osrm/data:/data
+    ports:
+      - "5000:5000"
+
+  optimizer:
+    build: ./optimizer
+    environment:
+      OSRM_URL: http://osrm:5000
+    depends_on:
+      - osrm
+    ports:
+      - "8000:8000"
+
+  server:
+    build: ./server
+    env_file: .env
+    environment:
+      OSRM_URL: http://osrm:5000
+      OPTIMIZER_URL: http://optimizer:8000
+    depends_on:
+      - osrm
+      - optimizer
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./server/data:/app/data
+
+  web:
+    build: ./web
+    ports:
+      - "5173:80"
+    depends_on:
+      - server
