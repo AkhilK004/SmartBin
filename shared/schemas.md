@@ -212,7 +212,8 @@ Same request shape; every stop is treated as mandatory and ordered in street ord
       "stops": [ { "type": "bin", "bin_id": "B-001", "lat": 26.2183, "lng": 78.1828, "load_after_kg": 74 } ],
       "distance_m": 12840,
       "duration_s": 3120,
-      "geometry": [[78.17, 26.2], [78.1828, 26.2183]]
+      "geometry": [[78.17, 26.2], [78.1828, 26.2183]],
+      "leg_distances_m": [1573, 1573]
     }
   ],
   "skip_list": [ { "bin_id": "B-020", "zone_id": "lashkar", "fill_pct": 22.0 } ],
@@ -225,7 +226,7 @@ Same request shape; every stop is treated as mandatory and ordered in street ord
 }
 ```
 
-`geometry` is a `[lng, lat]` polyline along roads (from OSRM `/route`). `due_zones` lists every zone whose collection day is today (CLAUDE.md glossary), deferred ones included; `deferred_zones` is the subset skipped for low load. `urgent_override_zones` lists due zones below the minimum load that still got a primary run because they hold 3 or more urgent bins (they appear in neither `deferred_zones` nor the secondary routes). Secondary trucks take at most 2 urgent bins per zone, highest priority first; further urgent bins in a zone that is not due appear in `waiting` with a decision. `baseline` is the fixed-route comparison over every bin of all due zones (null if unavailable). `distance_source` is `null` when no route was computed, and `haversine_fallback` if any route used it. `waiting` holds must-visit bins that wait for their zone's day (standard bins), or urgent bins with no secondary truck. `error` is a string if the optimizer failed (the plan then has empty `routes`). `decisions` is the readable log required by CLAUDE.md §3.9.
+`geometry` is a `[lng, lat]` polyline along roads (from OSRM `/route`). `leg_distances_m` has one road distance per leg (depot to stop 1, ..., last stop to depot; length = stops + 1); the truck simulator uses it to place the stops along the geometry. `due_zones` lists every zone whose collection day is today (CLAUDE.md glossary), deferred ones included; `deferred_zones` is the subset skipped for low load. `urgent_override_zones` lists due zones below the minimum load that still got a primary run because they hold 3 or more urgent bins (they appear in neither `deferred_zones` nor the secondary routes). Secondary trucks take at most 2 urgent bins per zone, highest priority first; further urgent bins in a zone that is not due appear in `waiting` with a decision. `baseline` is the fixed-route comparison over every bin of all due zones (null if unavailable). `distance_source` is `null` when no route was computed, and `haversine_fallback` if any route used it. `waiting` holds must-visit bins that wait for their zone's day (standard bins), or urgent bins with no secondary truck. `error` is a string if the optimizer failed (the plan then has empty `routes`). `decisions` is the readable log required by CLAUDE.md §3.9.
 
 ---
 
@@ -297,8 +298,11 @@ The numbers above are examples of shape only. Real values are computed from simu
 | GET | `/state` | none | full snapshot (same payload as `state:init`) |
 | GET | `/settings` | none | see Settings |
 | PUT | `/settings` | partial Settings | triggers re-plan on next `/jobs/daily` |
-| POST | `/sim/bin` | `{ "bin_id", "fill_pct"?, "gas_ppm"?, "temp_c"?, "complaint"?, "offline"? }` | manual override |
-| POST | `/sim/speed` | `{ "speed": 1 \| 60 \| 600 }` | simulated time multiplier |
+| GET | `/sim` | none | `{ speed, now, overflows_missed: { by_date: { "YYYY-MM-DD": { baseline, optimized } }, total: { baseline, optimized } } }` |
+| POST | `/sim/bin` | `{ "bin_id", "fill_pct"?, "gas_ppm"?, "temp_c"?, "complaint"?, "offline"? }` (at least one besides `bin_id`) | manual override; returns the updated `Bin`; 404 unknown bin, 400 invalid |
+| POST | `/sim/speed` | `{ "speed": 1 \| 60 \| 600 }` | simulated time multiplier; returns the sim status; 400 otherwise |
+
+`/sim/*` answer 503 when the simulator is off (`SIM=off`). `POST /jobs/daily` is also the "run the daily plan now" control.
 | GET | `/health` | none | `{ "status": "ok" }` |
 
 SNS envelope (`BUS=sns`): `{ "Type": "Notification", "Message": "<SensorReading JSON string>", ... }`. For `Type: "SubscriptionConfirmation"` the server fetches `SubscribeURL`.
@@ -311,7 +315,8 @@ SNS envelope (`BUS=sns`): `{ "Type": "Notification", "Message": "<SensorReading 
 |---|---|---|
 | `state:init` | `{ bins: Bin[], zones: Zone[], trucks: Truck[], sites: Site[], plan: Plan \| null, savings: Savings \| null, alerts: Alert[], settings: Settings, sim: { speed: number, now: string } }` | on connect |
 | `bins:update` | `Bin[]` (changed bins only) | on change, batched ≤ 1 s |
-| `trucks:update` | `Truck[]` | every 1 s |
+| `trucks:update` | `Truck[]` | every 1 s (real time) |
+| `sim:update` | `{ speed: number, now: string }` | every 1 s (real time) |
 | `routes:update` | `Plan["routes"]` | when a plan is built |
 | `plan:update` | `Plan` | when a plan is built |
 | `alerts:new` | `Alert` | once per alert |

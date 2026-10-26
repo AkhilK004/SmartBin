@@ -120,6 +120,26 @@ export const config = {
   // Scheduled jobs (CLAUDE.md §6): node-cron locally, EventBridge Scheduler on AWS; both POST /jobs/*
   cron: { frequency: "0 0 * * *", daily: "30 0 * * *" },
 
+  // ASSUMPTION: simulator behaviour (invented, not data)
+  sim: {
+    enabled: (env.SIM ?? "on") !== "off",
+    seed: 20261027,
+    tickMs: 1000,
+    maxStepS: 30,
+    fillNoise: 0.2, // fill growth is rate * (1 +/- fillNoise)
+    readingJitterS: 60,
+    batteryDrainPctPerDay: [0.5, 3] as const,
+    gasSpikePerBinPerHour: 0.002,
+    gasSpikeAddPpm: [350, 600] as const,
+    tempSpikePerBinPerHour: 0.0005,
+    tempSpikeAddC: [28, 40] as const,
+    spikeDurationH: [2, 4] as const,
+    offlinePerBinPerHour: 0.001,
+    offlineDurationH: [1, 3] as const,
+    gasNoisePpm: 10,
+    tempNoiseC: 1,
+  },
+
   // Simulated time multipliers allowed by /sim/speed
   simSpeeds: [1, 60, 600] as const,
 

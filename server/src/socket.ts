@@ -15,6 +15,10 @@ export function attachSocket(httpServer: HttpServer, ctx: AppContext, pipeline: 
 
   const changed = new Map<string, Bin>();
   pipeline.events.on("bins:changed", (bin: Bin) => changed.set(bin.bin_id, bin));
+  pipeline.events.on("sim:tick", (t: { trucks: unknown; sim: unknown }) => {
+    io.emit("trucks:update", t.trucks);
+    io.emit("sim:update", t.sim);
+  });
   pipeline.events.on("plan:new", (plan: Plan) => {
     io.emit("plan:update", plan);
     io.emit("routes:update", plan.routes);

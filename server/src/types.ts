@@ -174,6 +174,8 @@ export interface PlanRoute {
   duration_s: number;
   /** [lng, lat] polyline along roads. */
   geometry: [number, number][];
+  /** Road distance of each leg: depot -> stop 1, ..., last stop -> depot (length = stops + 1). */
+  leg_distances_m: number[];
 }
 
 export interface Plan {

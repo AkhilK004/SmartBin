@@ -14,7 +14,7 @@ export function defaultPlanDeps(): PlanDeps {
     baseline: optimizer.baseline,
     roadRoute: async (points) => {
       const r = await osrm.route(points);
-      return { geometry: r.geometry, distance_source: r.distance_source };
+      return { geometry: r.geometry, leg_distances_m: r.leg_distances_m, distance_source: r.distance_source };
     },
   };
 }

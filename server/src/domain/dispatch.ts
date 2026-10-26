@@ -23,6 +23,7 @@ export interface PlanDeps {
   baseline(req: OptimizeRequest): Promise<OptimizeResponse>;
   roadRoute(points: { lat: number; lng: number }[]): Promise<{
     geometry: [number, number][];
+    leg_distances_m: number[];
     distance_source: DistanceSource;
   }>;
 }
@@ -155,6 +156,7 @@ export async function buildPlan(input: PlanInput, deps: PlanDeps): Promise<Plan>
         distance_m: r.distance_m,
         duration_s: r.duration_s,
         geometry: road.geometry,
+        leg_distances_m: road.leg_distances_m,
       });
     }
   };

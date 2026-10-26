@@ -6,6 +6,8 @@ import { initialZones } from "./domain/frequency.js";
 import { SettingsStore } from "./settings.js";
 import { localDate } from "./time.js";
 import cron from "node-cron";
+import { SimClock } from "./sim/clock.js";
+import { SimEngine } from "./sim/engine.js";
 import { defaultPlanDeps } from "./jobs.js";
 import { createPipeline } from "./pipeline.js";
 import { buildApp, type AppContext } from "./routes.js";
@@ -25,31 +27,57 @@ if (saved) {
 }
 
 const settings = new SettingsStore();
-const pipeline = createPipeline({ bus, store, history, settings });
-const ctx: AppContext = { bus, store, history, planDeps: defaultPlanDeps(), settings, pipeline, sim: { speed: 1 } };
+const simClock = config.sim.enabled ? new SimClock() : undefined;
+const clock = simClock ? () => simClock.now() : undefined;
+const pipeline = createPipeline({ bus, store, history, settings, clock });
+const ctx: AppContext = { bus, store, history, planDeps: defaultPlanDeps(), settings, pipeline, sim: { speed: 1 }, clock };
 const server = createServer(buildApp(ctx));
 const socket = attachSocket(server, ctx, pipeline);
 
 // Same HTTP endpoints Cloud Scheduler / EventBridge would call (CLAUDE.md §6).
-const callJob = (path: string) => async () => {
-  try {
-    const res = await fetch(`http://localhost:${config.port}${path}`, { method: "POST" });
-    console.log(`${path} -> ${res.status}`);
-  } catch (err) {
-    console.error(`${path} failed`, err);
-  }
+const self = `http://127.0.0.1:${config.port}`;
+const callJob = async (path: string) => {
+  const res = await fetch(`${self}${path}`, { method: "POST" });
+  console.log(`${path} -> ${res.status}`);
 };
-const tasks = [
-  cron.schedule(config.cron.frequency, callJob("/jobs/frequency"), { timezone: config.timezone }),
-  cron.schedule(config.cron.daily, callJob("/jobs/daily"), { timezone: config.timezone }),
-];
+// With the simulator on, jobs fire on simulated time (same endpoints); otherwise on real time.
+const tasks = simClock
+  ? []
+  : [
+      cron.schedule(config.cron.frequency, () => void callJob("/jobs/frequency").catch(console.error), { timezone: config.timezone }),
+      cron.schedule(config.cron.daily, () => void callJob("/jobs/daily").catch(console.error), { timezone: config.timezone }),
+    ];
 
 const sweep = setInterval(() => pipeline.sweepOffline(), config.alerts.readingIntervalS * 1000);
 const snap = setInterval(() => void saveSnapshot(config.snapshotPath, store.snapshot()), config.snapshotIntervalMs);
 
-server.listen(config.port, () => console.log(`server listening on :${config.port}`));
+let engine: SimEngine | undefined;
+server.listen(config.port, () => {
+  console.log(`server listening on :${config.port}`);
+  if (!simClock) return;
+  engine = new SimEngine({
+    store,
+    history,
+    pipeline,
+    clock: simClock,
+    sim: ctx.sim,
+    publish: async (readings) => {
+      // same door a real device uses
+      await fetch(`${self}/ingest/readings`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(readings),
+      });
+    },
+    callJob,
+  });
+  ctx.simControl = engine;
+  engine.start();
+  console.log("simulator on (SIM=off to disable)");
+});
 
 async function shutdown() {
+  engine?.stop();
   tasks.forEach((t) => t.stop());
   clearInterval(sweep);
   clearInterval(snap);

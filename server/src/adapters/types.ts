@@ -23,6 +23,7 @@ export interface StateStore {
   getZones(): Zone[];
   setZones(zones: Zone[]): void;
   getTrucks(): Truck[];
+  setTrucks(trucks: Truck[]): void;
   getSites(): Site[];
   getAlerts(): Alert[];
   addAlert(alert: Alert): void;

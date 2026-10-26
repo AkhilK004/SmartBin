@@ -13,6 +13,8 @@ export interface Pipeline {
   sweepOffline(): void;
   /** Stored bin plus derived class, colour and priority. */
   enrich(bin: BinBase): Bin;
+  /** Apply a change that does not come from a sensor reading (complaint, last_emptied, offline). */
+  patchBin(binId: string, patch: Partial<BinBase>): BinBase | undefined;
 }
 
 export function createPipeline(deps: {
@@ -68,6 +70,14 @@ export function createPipeline(deps: {
   return {
     events,
     enrich,
+    patchBin(binId, patch) {
+      const bin = store.getBin(binId);
+      if (!bin) return undefined;
+      const updated = { ...bin, ...patch };
+      store.upsertBin(updated);
+      changed(updated);
+      return updated;
+    },
     sweepOffline() {
       const now = clock();
       const limitMs = config.alerts.offlineAfterMissedIntervals * config.alerts.readingIntervalS * 1000;

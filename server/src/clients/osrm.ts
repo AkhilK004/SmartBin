@@ -16,6 +16,8 @@ export interface TableResult {
 export interface RouteResult {
   /** [lng, lat] polyline along roads (empty on fallback: straight segments). */
   geometry: [number, number][];
+  /** Road distance of each leg between consecutive points (length = points - 1). */
+  leg_distances_m: number[];
   distance_m: number;
   duration_s: number;
   distance_source: DistanceSource;
@@ -67,6 +69,7 @@ export function createOsrmClient(baseUrl = config.osrmUrl, fetchImpl: FetchFn = 
         const r = body.routes[0];
         return {
           geometry: r.geometry.coordinates,
+          leg_distances_m: (r.legs as { distance: number }[]).map((l) => l.distance),
           distance_m: r.distance,
           duration_s: r.duration,
           distance_source: "osrm",
@@ -75,12 +78,15 @@ export function createOsrmClient(baseUrl = config.osrmUrl, fetchImpl: FetchFn = 
         const t = fallbackTable(pts);
         let distance_m = 0;
         let duration_s = 0;
+        const leg_distances_m: number[] = [];
         for (let i = 0; i < pts.length - 1; i++) {
+          leg_distances_m.push(t.distances_m[i]![i + 1]!);
           distance_m += t.distances_m[i]![i + 1]!;
           duration_s += t.durations_s[i]![i + 1]!;
         }
         return {
           geometry: pts.map((p) => [p.lng, p.lat] as [number, number]),
+          leg_distances_m,
           distance_m,
           duration_s,
           distance_source: "haversine_fallback",

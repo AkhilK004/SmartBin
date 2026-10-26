@@ -44,7 +44,11 @@ afterAll(() => {
 const client = () => createOptimizerClient(`http://127.0.0.1:${PORT}`);
 const deps = (): PlanDeps => ({
   ...client(),
-  roadRoute: async (pts) => ({ geometry: pts.map((p) => [p.lng, p.lat] as [number, number]), distance_source: "haversine_fallback" }),
+  roadRoute: async (pts) => ({
+    geometry: pts.map((p) => [p.lng, p.lat] as [number, number]),
+    leg_distances_m: pts.slice(1).map(() => 1000),
+    distance_source: "haversine_fallback",
+  }),
 });
 
 // Depot is (26.199, 78.195). One km of latitude ~ 0.009 deg, of longitude ~ 0.01 deg.

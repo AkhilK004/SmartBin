@@ -19,12 +19,15 @@ export class FakeHistory implements HistoryStore {
   async appendReading(r: SensorReading) {
     this.readingsLog.push(r);
   }
-  async appendEmptying() {}
+  emptyingLog: { bin_id: string; at: string }[] = [];
+  async appendEmptying(e: { bin_id: string; at: string }) {
+    this.emptyingLog.push(e);
+  }
   readings(binId: string, sinceIso?: string) {
     return this.readingsLog.filter((r) => r.bin_id === binId && (!sinceIso || r.timestamp >= sinceIso));
   }
-  emptyings() {
-    return [];
+  emptyings(binId: string) {
+    return this.emptyingLog.filter((e) => e.bin_id === binId);
   }
 }
 
@@ -35,7 +38,11 @@ const failingPlanDeps: PlanDeps = {
   baseline: async () => {
     throw new Error("optimizer not available in this test");
   },
-  roadRoute: async (pts) => ({ geometry: pts.map((p) => [p.lng, p.lat] as [number, number]), distance_source: "osrm" }),
+  roadRoute: async (pts) => ({
+    geometry: pts.map((p) => [p.lng, p.lat] as [number, number]),
+    leg_distances_m: pts.slice(1).map(() => 1000),
+    distance_source: "osrm",
+  }),
 };
 
 export function makeWorld(opts: { clock?: () => Date; fetchImpl?: typeof fetch; planDeps?: PlanDeps } = {}) {

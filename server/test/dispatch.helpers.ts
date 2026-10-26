@@ -100,7 +100,11 @@ export function fakeDeps(opts: { drop?: string[]; failOptimize?: string } = {}):
       deps.baselineCalls.push(req);
       return respond(req, []);
     },
-    roadRoute: async (pts) => ({ geometry: pts.map((p) => [p.lng, p.lat] as [number, number]), distance_source: "osrm" }),
+    roadRoute: async (pts) => ({
+      geometry: pts.map((p) => [p.lng, p.lat] as [number, number]),
+      leg_distances_m: pts.slice(1).map(() => 1000),
+      distance_source: "osrm",
+    }),
   };
   return deps;
 }

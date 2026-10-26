@@ -18,6 +18,12 @@ export function weekday(date: string): number {
   return new Date(`${date}T00:00:00Z`).getUTCDay();
 }
 
+/** Instant of `hour:minute` local time on `date`. */
+export function localInstant(date: string, hour: number, minute = 0): Date {
+  const midnightUtc = new Date(`${date}T00:00:00Z`).getTime();
+  return new Date(midnightUtc + (hour * 60 + minute) * MS_PER_MIN - config.utcOffsetMinutes * MS_PER_MIN);
+}
+
 /** Instant a zone's collection run starts on `date`. */
 export function collectionStart(date: string): Date {
   const midnightUtc = new Date(`${date}T00:00:00Z`).getTime();

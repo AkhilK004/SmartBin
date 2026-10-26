@@ -37,6 +37,7 @@ export class MemoryStore implements StateStore {
   getZones = () => this.zones;
   setZones = (zones: Zone[]) => void (this.zones = zones);
   getTrucks = () => this.trucks;
+  setTrucks = (trucks: Truck[]) => void (this.trucks = trucks);
   getSites = () => this.sites;
   getAlerts = () => this.alerts;
   getPlan = () => this.plan;

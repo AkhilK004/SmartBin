@@ -68,3 +68,16 @@ Dated log of every assumption (CLAUDE.md §11.6). Never present these as real da
 | AI | "Urgent" for the override means `bin.urgent` (fill >= 95%, predicted overflow, or hazard), counted per zone. Standard 85-95% must-visit bins do not count. | `server/src/domain/dispatch.ts` |
 | AJ | Urgent override applies only to zones due today. A zone that is not due keeps invariant 2 (planned days only): secondary trucks take its 2 highest-priority urgent bins and the rest wait, logged in `plan.decisions`, even though they may overflow before the next collection. | `server/src/domain/dispatch.ts` |
 | AK | Seed: 270 bins, 45 per zone (`SEED_BIN_COUNT`), matching the "about 50 bins per area" request. CLAUDE.md section 9 updated. | `server/src/config.ts` |
+
+## 2026-10-27 (Phase 6)
+
+| ID | Assumption | Where |
+|---|---|---|
+| AL | All simulator numbers are invented, not data: fill noise +/-20%, battery drain 0.5-3 %/day per bin, gas spikes (+350-600 ppm, 0.002 per bin-hour), temperature spikes (+28-40 C, 0.0005), outages (0.001 per bin-hour, 1-3 h), spike length 2-4 h. | `config.sim` |
+| AM | With the simulator on (default, `SIM=off` disables it) scheduled jobs fire on simulated time (00:00 frequency, 00:30 daily local) by calling the same `/jobs/*` endpoints; node-cron is used only when the simulator is off. | `server/src/index.ts`, `sim/engine.ts` |
+| AN | Trucks leave at the later of the plan time and 06:00 local on the plan date. A truck still driving finishes its route before the next plan's route starts. | `sim/trucks.ts` |
+| AO | A truck's load follows the plan's `load_after_kg` (not the live fill of the bin). The bin is emptied completely. A truck unloads fully when it is back at the depot (no unload stop at the end of a shift). | `sim/trucks.ts` |
+| AP | A zone counts as collected (its `last_collection_date` moves to the plan date) when every primary route of that plan has finished. | `sim/trucks.ts` |
+| AQ | Missed-overflow baseline replay: on a zone's fixed collection day, at 06:00 local, every bin of the zone is emptied at once (no travel time, no deferral, no secondary trucks); overflow episodes are counted once per bin until it is emptied. | `sim/engine.ts` |
+| AR | Truck runs are not saved in the snapshot; after a restart every truck starts idle at the depot. Overflow counters are in memory only. | `sim/engine.ts` |
+| AS | Trucks move at a constant 22 km/h along the OSRM geometry, scaled so the route length equals the sum of the OSRM leg distances. | `sim/trucks.ts` |

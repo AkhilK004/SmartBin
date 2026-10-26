@@ -1,10 +1,13 @@
 import express from "express";
+import { config } from "./config.js";
 import type { HistoryStore, MessageBus, StateStore } from "./adapters/types.js";
 import type { PlanDeps } from "./domain/dispatch.js";
 import { parseIngest } from "./http/ingest.js";
 import { runDailyJob, runFrequencyJob } from "./jobs.js";
 import type { Pipeline } from "./pipeline.js";
 import { settingsPatchSchema, type SettingsStore } from "./settings.js";
+import type { SimControl } from "./sim/engine.js";
+import { z } from "zod";
 
 export interface AppContext {
   bus: MessageBus;
@@ -14,6 +17,8 @@ export interface AppContext {
   settings: SettingsStore;
   pipeline: Pipeline;
   sim: { speed: number };
+  /** Present when the simulator is on (SIM != off). */
+  simControl?: SimControl;
   clock?: () => Date;
   fetchImpl?: typeof fetch;
 }
@@ -75,6 +80,58 @@ export function buildApp(ctx: AppContext) {
     } catch (err) {
       res.status(500).json({ error: (err as Error).message });
     }
+  });
+
+  const simBodySchema = z
+    .object({
+      bin_id: z.string().min(1),
+      fill_pct: z.number().min(0).max(100).optional(),
+      gas_ppm: z.number().min(0).optional(),
+      temp_c: z.number().optional(),
+      complaint: z.boolean().optional(),
+      offline: z.boolean().optional(),
+    })
+    .strict()
+    .refine((b) => Object.keys(b).length > 1, { message: "give at least one field besides bin_id" });
+
+  app.get("/sim", (_req, res) => {
+    if (!ctx.simControl) {
+      res.status(503).json({ error: "simulator is off (SIM=off)" });
+      return;
+    }
+    res.json(ctx.simControl.status());
+  });
+
+  app.post("/sim/bin", (req, res) => {
+    if (!ctx.simControl) {
+      res.status(503).json({ error: "simulator is off (SIM=off)" });
+      return;
+    }
+    const parsed = simBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.flatten() });
+      return;
+    }
+    const { bin_id, ...patch } = parsed.data;
+    const bin = ctx.simControl.setBin(bin_id, patch);
+    if (!bin) {
+      res.status(404).json({ error: "unknown bin_id", bin_id });
+      return;
+    }
+    res.json(bin);
+  });
+
+  app.post("/sim/speed", (req, res) => {
+    if (!ctx.simControl) {
+      res.status(503).json({ error: "simulator is off (SIM=off)" });
+      return;
+    }
+    const speed = (req.body as { speed?: unknown } | undefined)?.speed;
+    if (typeof speed !== "number" || !ctx.simControl.setSpeed(speed)) {
+      res.status(400).json({ error: `speed must be one of ${config.simSpeeds.join(", ")}` });
+      return;
+    }
+    res.json(ctx.simControl.status());
   });
 
   app.post("/ingest/readings", async (req, res) => {
