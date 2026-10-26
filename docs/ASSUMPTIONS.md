@@ -90,3 +90,14 @@ Dated log of every assumption (CLAUDE.md §11.6). Never present these as real da
 | AU | The fixed baseline burns fuel as primary compactors only (0.35 L/km), because a fixed schedule has no secondary trucks. | `server/src/domain/savings.ts` |
 | AV | The cumulative stops, km and fuel cover plan dates recorded since the ledger started; the ledger is saved in the snapshot. Overflow counts are in memory only (AR), so after a restart the cumulative overflows restart at zero while the other totals continue. | `server/src/savings.ts` |
 | AW | The baseline route length comes from the nearest-neighbour baseline (assumption Z), so the km figure is only as good as that heuristic. | `optimizer/app/baseline.py` |
+
+## 2026-10-26 (Phase 8, web dashboard)
+
+| ID | Assumption | Where |
+|---|---|---|
+| AX | The user approved React Bits and its dependencies on 2026-10-26, which goes past the locked web stack in CLAUDE.md section 7. One package was added: `motion` (needed by `CountUp`). CLAUDE.md section 7 is not edited; update it if the team keeps `motion`. | `web/package.json`, `web/src/components/reactbits/CountUp/` |
+| AY | The base map is a dark style written in code over the OpenMapTiles schema, not a hosted MapTiler style. With `VITE_MAPTILER_KEY` it uses MapTiler vector tiles and terrain-RGB with hillshade. Without a key it uses OpenFreeMap tiles, no terrain, and the UI says so. The MapTiler path was not run (no key available). | `web/src/map/style.ts` |
+| AZ | The browser calls the server through a proxy at `/api` (Vite dev and preview) because the server's HTTP routes send no CORS headers. Socket.io goes through the same proxy. A production deployment needs the same `/api` and `/socket.io` routes in its web server (Phase 9). | `web/vite.config.ts`, `web/src/api.ts` |
+| BA | `?tab=<id>` in the URL opens a panel directly. In development `window.__map` exposes the map for browser tests. | `web/src/store.ts`, `web/src/MapView.tsx` |
+| BB | Truck positions glide between the 1 s `trucks:update` events by linear interpolation in the browser. Heading is the server's `heading_deg`. | `web/src/MapView.tsx` |
+| BC | Colour on the map: bin colours are the CLAUDE.md section 4 set. Primary routes use steps of one blue, secondary routes are dashed white, so truck routes are never confused with bin states. | `web/src/truckColors.ts`, `web/src/index.css` |
