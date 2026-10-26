@@ -11,9 +11,7 @@ export async function createAdapters(): Promise<{ bus: MessageBus; store: StateS
   ] as const) {
     if (value !== "local") throw new Error(`${name}=${value} is not available yet (AWS adapters: Phase 10)`);
   }
-  return {
-    bus: new LocalBus(),
-    store: new MemoryStore(),
-    history: await JsonlHistory.open(config.historyPath),
-  };
+  const history = await JsonlHistory.open(config.historyPath);
+  if (history.skippedLines > 0) console.warn(`history: skipped ${history.skippedLines} unreadable line(s) in ${config.historyPath}`);
+  return { bus: new LocalBus(), store: new MemoryStore(), history };
 }

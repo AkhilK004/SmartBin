@@ -97,6 +97,8 @@ type HistoryLine = ({ kind: "reading" } & SensorReading) | ({ kind: "emptying" }
 export class JsonlHistory implements HistoryStore {
   private byBin = new Map<string, SensorReading[]>();
   private emptiedByBin = new Map<string, Emptying[]>();
+  /** Lines in the file that could not be parsed when it was opened. */
+  skippedLines = 0;
 
   private constructor(private path: string) {}
 
@@ -111,7 +113,15 @@ export class JsonlHistory implements HistoryStore {
     }
     for (const line of text.split("\n")) {
       if (!line.trim()) continue;
-      const { kind, ...rest } = JSON.parse(line) as HistoryLine;
+      // A process killed mid-append leaves a torn line. Skip it instead of refusing to start.
+      let parsed: HistoryLine;
+      try {
+        parsed = JSON.parse(line) as HistoryLine;
+      } catch {
+        h.skippedLines += 1;
+        continue;
+      }
+      const { kind, ...rest } = parsed;
       if (kind === "reading") h.index(rest as SensorReading);
       else h.indexEmptying(rest as Emptying);
     }
@@ -132,12 +142,20 @@ export class JsonlHistory implements HistoryStore {
 
   async appendReading(reading: SensorReading): Promise<void> {
     this.index(reading);
-    await appendFile(this.path, JSON.stringify({ kind: "reading", ...reading }) + "\n");
+    await this.write({ kind: "reading", ...reading });
   }
 
   async appendEmptying(e: Emptying): Promise<void> {
     this.indexEmptying(e);
-    await appendFile(this.path, JSON.stringify({ kind: "emptying", ...e }) + "\n");
+    await this.write({ kind: "emptying", ...e });
+  }
+
+  /** One append at a time: overlapping appends tear lines on bind-mounted volumes. */
+  private tail: Promise<void> = Promise.resolve();
+  private write(line: HistoryLine): Promise<void> {
+    const next = this.tail.then(() => appendFile(this.path, JSON.stringify(line) + "\n"));
+    this.tail = next.catch(() => undefined);
+    return next;
   }
 
   readings(binId: string, sinceIso?: string): SensorReading[] {

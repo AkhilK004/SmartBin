@@ -18,21 +18,27 @@ services:
 
   server:
     build: ./server
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       OSRM_URL: http://osrm:5000
       OPTIMIZER_URL: http://optimizer:8000
     depends_on:
-      - osrm
-      - optimizer
+      optimizer:
+        condition: service_healthy
     ports:
       - "4000:4000"
     volumes:
       - ./server/data:/app/data
 
   web:
-    build: ./web
+    build:
+      context: ./web
+      args:
+        VITE_MAPTILER_KEY: ${VITE_MAPTILER_KEY:-}
     ports:
       - "5173:80"
     depends_on:
-      - server
+      server:
+        condition: service_healthy
