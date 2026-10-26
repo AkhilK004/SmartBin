@@ -6,7 +6,7 @@ Dated log of every assumption (CLAUDE.md §11.6). Never present these as real da
 
 | ID | Assumption | Where |
 |---|---|---|
-| A | Bin capacity is 120 kg, used for expected load and VRP demand. Not in CLAUDE.md. | `server/src/config.ts` `binCapacityKg` |
+| A | Bin capacity is 120 kg, used for expected load and VRP demand. Not in CLAUDE.md. (Briefly 500 kg on 2026-10-26; reverted the same day together with a denser seed so a zone can reach the 2400 kg minimum load.) | `server/src/config.ts` `binCapacityKg` |
 | B | Fixed-route baseline "street order" = nearest-neighbour order from the depot over OSRM distances. | Phase 4 `baseline.py` |
 | C | Baseline overflows missed = replay the baseline schedule (due zones, due days only) against the same simulated fill curves. | Phase 6/7 |
 | D | Fleet: 3 primary compactors, 2 secondary auto-tippers. | `config.fleet` |
@@ -45,7 +45,26 @@ Dated log of every assumption (CLAUDE.md §11.6). Never present these as real da
 
 | ID | Assumption | Where |
 |---|---|---|
-| Y | The optimizer has no shift-length time dimension (not in CLAUDE.md). Duration is reported after solving: road time + 60 s per bin + 300 s per dump-yard visit. | `optimizer/app/common.py` |
+| Y | Shift limit: one vehicle's route (driving + 60 s per bin + 300 s per dump visit, depot to depot) may last at most 8 h (`SHIFT_SECONDS`, request field `shift_limit_s`). Not in CLAUDE.md. A must-visit bin that cannot fit returns 422 `infeasible`. The baseline ignores it. | `optimizer/app/solver.py` |
 | Z | Baseline = nearest-neighbour order from the depot, split into contiguous chunks per vehicle in proportion to capacity, with dump trips when full (open items B, C: the missed-overflow replay is Phase 6/7). | `optimizer/app/baseline.py` |
-| AA | The model has at most 5 dump-yard copies per vehicle; repeated or leading dump stops are removed from the output. | `optimizer/app/solver.py` |
+| AA | The model gets at most `min(n_bins, ceil(2 * total_demand / smallest_capacity)) + n_vehicles` dump-yard copies (a proven upper bound on useful dump visits); repeated or leading dump stops are removed from the output. | `optimizer/app/solver.py` |
 | AB | A must-visit bin heavier than the largest vehicle returns HTTP 422 `infeasible`; it is never dropped. | `optimizer/app/main.py` |
+
+## 2026-10-26 (Phase 5)
+
+| ID | Assumption | Where |
+|---|---|---|
+| AC | `last_collection_date` is not changed when a plan is built, so `/jobs/daily` can be re-run on the same day. The truck simulator (Phase 6) updates it when a zone's run finishes. | `server/src/jobs.ts` |
+| AD | The fixed baseline covers every bin of every due zone, deferred zones included, because a fixed schedule has no minimum-load check. It also counts toward `plan.distance_source`. | `server/src/domain/dispatch.ts` |
+| AE | `plan.due_zones` lists every zone due today (CLAUDE.md glossary), deferred ones included; `deferred_zones` is the subset skipped for low load. | `server/src/domain/dispatch.ts` |
+| AF | Offline bins are planned from their last known values. | `server/src/domain/dispatch.ts` |
+| AG | Cron: `/jobs/frequency` at 00:00 and `/jobs/daily` at 00:30 Asia/Kolkata. | `config.cron` |
+| AH | An urgent bin in a deferred due zone goes to a secondary truck (the zone has no run today). With the seed data this sends many bins to secondary trucks when a zone with many predicted-overflow bins is deferred (see the Phase 5 report). | `server/src/domain/dispatch.ts` |
+
+## 2026-10-26 (edge-case fixes)
+
+| ID | Assumption | Where |
+|---|---|---|
+| AI | "Urgent" for the override means `bin.urgent` (fill >= 95%, predicted overflow, or hazard), counted per zone. Standard 85-95% must-visit bins do not count. | `server/src/domain/dispatch.ts` |
+| AJ | Urgent override applies only to zones due today. A zone that is not due keeps invariant 2 (planned days only): secondary trucks take its 2 highest-priority urgent bins and the rest wait, logged in `plan.decisions`, even though they may overflow before the next collection. | `server/src/domain/dispatch.ts` |
+| AK | Seed: 270 bins, 45 per zone (`SEED_BIN_COUNT`), matching the "about 50 bins per area" request. CLAUDE.md section 9 updated. | `server/src/config.ts` |

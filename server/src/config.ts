@@ -7,8 +7,8 @@ const env = process.env;
 
 export const config = {
   port: Number(env.PORT ?? 4000),
-  osrmUrl: env.OSRM_URL ?? "http://localhost:5000",
-  optimizerUrl: env.OPTIMIZER_URL ?? "http://localhost:8000",
+  osrmUrl: env.OSRM_URL ?? "http://127.0.0.1:5000",
+  optimizerUrl: env.OPTIMIZER_URL ?? "http://127.0.0.1:8001",
 
   // Adapter selection (CLAUDE.md §6)
   bus: (env.BUS ?? "local") as "local" | "sns",
@@ -18,8 +18,8 @@ export const config = {
   historyPath: env.HISTORY_PATH ?? "./data/history.jsonl",
   snapshotIntervalMs: 30_000,
 
-  // ASSUMPTION: demo size; design must scale to 150+ (CLAUDE.md §9)
-  seedBinCount: Number(env.SEED_BIN_COUNT ?? 60),
+  // ASSUMPTION: demo size, about 45 bins per zone x 6 zones; design must scale to 150+ (CLAUDE.md §9)
+  seedBinCount: Number(env.SEED_BIN_COUNT ?? 270),
 
   // Bin classification (CLAUDE.md §4)
   thresholds: {
@@ -47,6 +47,7 @@ export const config = {
   // Optimizer objective (CLAUDE.md §4)
   penaltyScale: 60,
   optimizerTimeLimitS: 10,
+  optimizerTimeoutMs: 60_000,
 
   // Haversine fallback only: straight-line metres times this approximates roads
   haversineRoadFactor: 1.4,
@@ -54,6 +55,10 @@ export const config = {
 
   // Dispatch (CLAUDE.md §3.3)
   minLoadFractionOfPrimary: 0.4,
+  // Urgent override: a due zone below the minimum load still gets a primary run when it holds
+  // at least this many urgent bins; secondary trucks take at most this many minus one per zone.
+  urgentOverrideCount: 3,
+  maxSecondaryUrgentPerZone: 2,
 
   // Frequency Planner (CLAUDE.md §4)
   frequency: {
@@ -111,6 +116,9 @@ export const config = {
   ingestMaxBatch: 1000,
   binsFlushMs: 1000,
   trucksEmitMs: 1000,
+
+  // Scheduled jobs (CLAUDE.md §6): node-cron locally, EventBridge Scheduler on AWS; both POST /jobs/*
+  cron: { frequency: "0 0 * * *", daily: "30 0 * * *" },
 
   // Simulated time multipliers allowed by /sim/speed
   simSpeeds: [1, 60, 600] as const,

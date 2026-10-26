@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { LocalBus, MemoryStore } from "../src/adapters/local.js";
 import type { HistoryStore } from "../src/adapters/types.js";
+import type { PlanDeps } from "../src/domain/dispatch.js";
 import { initialZones } from "../src/domain/frequency.js";
 import { createPipeline } from "../src/pipeline.js";
 import { SettingsStore } from "../src/settings.js";
@@ -27,7 +28,17 @@ export class FakeHistory implements HistoryStore {
   }
 }
 
-export function makeWorld(opts: { clock?: () => Date; fetchImpl?: typeof fetch } = {}) {
+const failingPlanDeps: PlanDeps = {
+  optimize: async () => {
+    throw new Error("optimizer not available in this test");
+  },
+  baseline: async () => {
+    throw new Error("optimizer not available in this test");
+  },
+  roadRoute: async (pts) => ({ geometry: pts.map((p) => [p.lng, p.lat] as [number, number]), distance_source: "osrm" }),
+};
+
+export function makeWorld(opts: { clock?: () => Date; fetchImpl?: typeof fetch; planDeps?: PlanDeps } = {}) {
   const bus = new LocalBus();
   const store = new MemoryStore();
   const bins = seedBins(60, NOW);
@@ -36,7 +47,8 @@ export function makeWorld(opts: { clock?: () => Date; fetchImpl?: typeof fetch }
   const clock = opts.clock ?? (() => NOW);
   const settings = new SettingsStore();
   const pipeline = createPipeline({ bus, store, history, settings, clock });
-  const ctx: AppContext = { bus, store, settings, pipeline, sim: { speed: 1 }, clock, fetchImpl: opts.fetchImpl };
+  const planDeps = opts.planDeps ?? failingPlanDeps;
+  const ctx: AppContext = { bus, store, history, planDeps, settings, pipeline, sim: { speed: 1 }, clock, fetchImpl: opts.fetchImpl };
   const server: Server = createServer(buildApp(ctx));
   const socket = attachSocket(server, ctx, pipeline);
   return { bus, store, history, ctx, pipeline, server, socket };

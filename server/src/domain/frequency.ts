@@ -108,3 +108,8 @@ export function planFrequency(zones: Zone[], bins: BinBase[], history: HistorySt
     return { ...z, fill_rate_pct_per_day: rate, ...scheduleFor(rate, z.last_collection_date, today) };
   });
 }
+
+/** Rebuilds each calendar for `today` from the stored rate and last collection; no rate change. */
+export function rollCalendars(zones: Zone[], today: string): Zone[] {
+  return zones.map((z) => ({ ...z, ...scheduleFor(z.fill_rate_pct_per_day, z.last_collection_date, today) }));
+}

@@ -7,6 +7,16 @@ const [minLng, minLat, maxLng, maxLat] = config.bbox;
 const inBbox = (lat: number, lng: number) => lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat;
 
 describe("seed", () => {
+  it("seeds about 45 bins per zone by default (270 in total)", () => {
+    const bins = seedBins();
+    expect(config.seedBinCount).toBe(270);
+    for (const z of seedZoneBases(bins)) {
+      const n = bins.filter((b) => b.zone_id === z.zone_id).length;
+      expect(n).toBeGreaterThanOrEqual(40);
+      expect(n).toBeLessThanOrEqual(50);
+    }
+  });
+
   it("seeds the configured bin count with unique ids", () => {
     const bins = seedBins();
     expect(bins).toHaveLength(config.seedBinCount);

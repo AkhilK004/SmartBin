@@ -127,3 +127,68 @@ export interface Alert {
   message: string;
   timestamp: string;
 }
+
+// ---- optimizer API (shared/schemas.md) ----
+
+export interface OptimizeStop {
+  bin_id: string;
+  lat: number;
+  lng: number;
+  demand_kg: number;
+  mandatory: boolean;
+  priority: number;
+}
+
+export interface OptimizeRequest {
+  depot: { lat: number; lng: number };
+  dump_yard: { lat: number; lng: number };
+  vehicles: { vehicle_id: string; kind: TruckKind; capacity_kg: number }[];
+  stops: OptimizeStop[];
+  penalty_scale: number;
+  time_limit_s: number;
+}
+
+export interface RouteStop {
+  type: "bin" | "dump_yard";
+  bin_id?: string | null;
+  lat: number;
+  lng: number;
+  load_after_kg: number;
+}
+
+export interface OptimizeResponse {
+  routes: { vehicle_id: string; stops: RouteStop[]; distance_m: number; duration_s: number }[];
+  dropped: { bin_id: string; reason: string }[];
+  distance_source: DistanceSource;
+  decisions: string[];
+}
+
+// ---- daily plan ----
+
+export interface PlanRoute {
+  route_id: string;
+  truck_id: string;
+  truck_kind: TruckKind;
+  stops: RouteStop[];
+  distance_m: number;
+  duration_s: number;
+  /** [lng, lat] polyline along roads. */
+  geometry: [number, number][];
+}
+
+export interface Plan {
+  date: string;
+  generated_at: string;
+  due_zones: ZoneId[];
+  /** Zones below the minimum load that still got a primary run (3+ urgent bins). */
+  urgent_override_zones: ZoneId[];
+  deferred_zones: { zone_id: ZoneId; expected_load_kg: number; min_load_kg: number; next_collection_date: string }[];
+  routes: PlanRoute[];
+  skip_list: { bin_id: string; zone_id: ZoneId; fill_pct: number }[];
+  dropped_optional: { bin_id: string; reason: string }[];
+  waiting: { bin_id: string; zone_id: ZoneId; fill_pct: number; reason: string }[];
+  distance_source: DistanceSource | null;
+  baseline: { stops: number; distance_m: number; duration_s: number; vehicles_used: number } | null;
+  decisions: string[];
+  error: string | null;
+}

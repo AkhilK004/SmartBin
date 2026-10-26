@@ -138,3 +138,54 @@ def test_150_bins_solve_within_the_time_limit():
     for r in res.routes:
         assert all(s.load_after_kg <= 6000 for s in r.stops)
     assert len(visited_ids(res)) + len(res.dropped) == 150
+
+
+def test_shift_limit_splits_work_across_vehicles():
+    stops = [stop(f"N{i}", at(north_km=3 + i, east_km=-i), mandatory=True, demand=50) for i in range(3)]
+    stops += [stop(f"S{i}", at(north_km=-3 - i, east_km=i), mandatory=True, demand=50) for i in range(3)]
+    one = request(stops, vehicles=[primary("A")], shift_limit_s=99999)
+    assert run(one).routes[0].duration_s > 3000  # one truck needs more than the shift below
+    req = request(stops, vehicles=[primary("A"), primary("B")], shift_limit_s=3000)
+    res = run(req)
+    assert visited_ids(res) == {s.bin_id for s in stops}
+    assert len(res.routes) == 2
+    assert all(r.duration_s <= 3000 for r in res.routes)
+
+
+def test_shift_limit_drops_an_optional_bin_even_with_a_huge_penalty():
+    req = request(
+        [stop("MUST", at(north_km=1), mandatory=True), stop("FAR", at(east_km=15), priority=100)],
+        penalty_scale=100000,
+        shift_limit_s=1800,
+    )
+    res = run(req)
+    assert "FAR" not in visited_ids(res)
+    assert all(r.duration_s <= 1800 for r in res.routes)
+
+
+def test_must_visit_beyond_the_shift_is_infeasible_not_dropped():
+    req = request([stop("FAR", at(east_km=60), mandatory=True)], shift_limit_s=3600)
+    with pytest.raises(InfeasibleError, match="shift limit"):
+        run(req)
+
+
+def test_default_shift_is_respected_by_the_150_bin_plan():
+    rng = random.Random(11)
+    stops = [
+        stop(f"B{i:03d}", at(north_km=rng.uniform(-8, 8), east_km=rng.uniform(-8, 8)), mandatory=i % 3 == 0, demand=rng.randint(40, 120))
+        for i in range(150)
+    ]
+    res = run(request(stops, vehicles=[primary(f"T-P{k}") for k in range(1, 4)], time_limit_s=4))
+    from app import settings
+
+    assert all(r.duration_s <= settings.SHIFT_SECONDS for r in res.routes)
+
+
+def test_bins_more_than_half_a_truck_each_need_one_load_per_bin():
+    # 12 bins of 485 kg on two 800 kg trucks: no two fit together, so about 12 loads and as many dump trips
+    stops = [stop(f"U{i}", at(north_km=1 + i % 4, east_km=-2 + i % 5), mandatory=True, demand=485) for i in range(12)]
+    req = request(stops, vehicles=[primary("S1", 800), primary("S2", 800)], time_limit_s=3)
+    res = run(req)
+    assert visited_ids(res) == {s.bin_id for s in stops}
+    for r in res.routes:
+        assert all(s.load_after_kg <= 800 for s in r.stops)

@@ -1,12 +1,16 @@
 import express from "express";
-import type { MessageBus, StateStore } from "./adapters/types.js";
+import type { HistoryStore, MessageBus, StateStore } from "./adapters/types.js";
+import type { PlanDeps } from "./domain/dispatch.js";
 import { parseIngest } from "./http/ingest.js";
+import { runDailyJob, runFrequencyJob } from "./jobs.js";
 import type { Pipeline } from "./pipeline.js";
 import { settingsPatchSchema, type SettingsStore } from "./settings.js";
 
 export interface AppContext {
   bus: MessageBus;
   store: StateStore;
+  history: HistoryStore;
+  planDeps: PlanDeps;
   settings: SettingsStore;
   pipeline: Pipeline;
   sim: { speed: number };
@@ -21,7 +25,7 @@ export function buildState(ctx: AppContext) {
     zones: ctx.store.getZones(),
     trucks: ctx.store.getTrucks(),
     sites: ctx.store.getSites(),
-    plan: null,
+    plan: ctx.store.getPlan(),
     savings: null,
     alerts: ctx.store.getAlerts(),
     settings: ctx.settings.get(),
@@ -58,6 +62,19 @@ export function buildApp(ctx: AppContext) {
       return;
     }
     res.json(ctx.settings.get());
+  });
+
+  app.post("/jobs/frequency", (_req, res) => {
+    res.json(runFrequencyJob(ctx));
+  });
+
+  app.post("/jobs/daily", async (_req, res) => {
+    try {
+      const plan = await runDailyJob(ctx);
+      res.status(plan.error ? 502 : 200).json(plan);
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
   });
 
   app.post("/ingest/readings", async (req, res) => {

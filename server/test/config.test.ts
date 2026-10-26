@@ -13,6 +13,12 @@ describe("config", () => {
     expect(w.fill + w.overflowRisk + w.location).toBeCloseTo(1);
   });
 
+  it("uses a realistic 120 kg bin and a zone can clear the minimum load", () => {
+    expect(config.binCapacityKg).toBe(120);
+    const minLoad = config.minLoadFractionOfPrimary * config.fleet.capacityKg.primary_compactor;
+    expect((config.seedBinCount / 6) * config.binCapacityKg * 0.5).toBeGreaterThanOrEqual(minLoad);
+  });
+
   it("covers every location type", () => {
     expect(Object.keys(config.locationWeight)).toHaveLength(7);
     expect(Object.keys(config.fillRatePctPerHour)).toHaveLength(7);

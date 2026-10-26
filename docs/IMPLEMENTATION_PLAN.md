@@ -63,7 +63,7 @@ Exit: `server` and `web` build; `pytest` runs; schemas cover every item in §8.
 1. `seed.ts`:
    - 6 zones (Maharaj Bada, Lashkar, City Centre, Thatipur, Morar, Hazira) as approximate polygons inside bbox `78.05,26.12,78.32,26.32`, each with a seed fill rate.
    - Depot and dump yard.
-   - `SEED_BIN_COUNT` bins (default 60, about 10 per zone), seeded-random inside zone polygons, with a mix of `location_type`.
+   - `SEED_BIN_COUNT` bins (default 270, about 45 per zone), seeded-random inside zone polygons, with a mix of `location_type`.
    - Fleet: primary compactors and secondary auto-tippers, counts from config.
    - All locations marked **approximate** (§10).
 2. `osrm/build.sh`: Geofabrik India extract → `osmium extract` to the bbox → `osrm-extract` (car profile) → `osrm-partition` → `osrm-customize` → `osrm-routed --algorithm mld`. Run it as the `osrm` service on port 5000.

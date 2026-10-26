@@ -34,6 +34,8 @@ class OptimizeRequest(BaseModel):
     stops: list[Stop]
     penalty_scale: float = Field(default=settings.PENALTY_SCALE, ge=0)
     time_limit_s: float = Field(default=settings.TIME_LIMIT_S, gt=0, le=120)
+    # Max duration of one vehicle's route, depot to depot (driving + service + unloading)
+    shift_limit_s: float = Field(default=settings.SHIFT_SECONDS, gt=0)
 
 
 class RouteStop(BaseModel):

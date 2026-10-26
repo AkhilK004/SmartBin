@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { config } from "../config.js";
-import type { Alert, BinBase, SensorReading, Site, Truck, Zone } from "../types.js";
+import type { Alert, BinBase, Plan, SensorReading, Site, Truck, Zone } from "../types.js";
 import type { Emptying, HistoryStore, MessageBus, Snapshot, StateStore } from "./types.js";
 
 export class LocalBus implements MessageBus {
@@ -25,6 +25,7 @@ export class MemoryStore implements StateStore {
   private trucks: Truck[] = [];
   private sites: Site[] = [];
   private alerts: Alert[] = [];
+  private plan: Plan | null = null;
 
   constructor(initial?: Snapshot) {
     if (initial) this.restore(initial);
@@ -38,6 +39,8 @@ export class MemoryStore implements StateStore {
   getTrucks = () => this.trucks;
   getSites = () => this.sites;
   getAlerts = () => this.alerts;
+  getPlan = () => this.plan;
+  setPlan = (plan: Plan) => void (this.plan = plan);
 
   addAlert(alert: Alert): void {
     this.alerts.push(alert);
@@ -51,6 +54,7 @@ export class MemoryStore implements StateStore {
       trucks: this.trucks,
       sites: this.sites,
       alerts: this.alerts,
+      plan: this.plan,
     };
   }
 
@@ -60,6 +64,7 @@ export class MemoryStore implements StateStore {
     this.trucks = s.trucks;
     this.sites = s.sites;
     this.alerts = s.alerts;
+    this.plan = s.plan ?? null;
   }
 }
 

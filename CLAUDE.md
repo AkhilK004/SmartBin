@@ -37,8 +37,8 @@ Never "improve" a business rule because it seems more sensible. If you think a r
 
 1. **No trip for a single standard bin.** A truck is never dispatched because one bin with fill 85–95%, no overflow prediction and no hazard is full. It waits for its zone's scheduled day.
 2. **Planned days only.** Primary trucks run only on collection days set by the Frequency Planner.
-3. **Minimum load check.** If a due zone's expected load is under **40% of one primary truck's capacity**, defer the zone to its next collection day.
-4. **Lone urgent bin → secondary truck.** An urgent bin in a zone with no run today goes to the small auto-tipper / e-rickshaw, never to a primary compactor.
+3. **Minimum load check.** If a due zone's expected load is under **40% of one primary truck's capacity**, defer the zone to its next collection day. **Urgent override:** if that zone holds **3 or more urgent bins**, skip the deferral and send the primary truck.
+4. **Lone urgent bin → secondary truck.** An urgent bin in a zone with no run today goes to the small auto-tipper / e-rickshaw, never to a primary compactor. Secondary trucks take **at most 2 urgent bins per zone**; any further urgent bins in a zone that is not due wait for its collection day and are logged in `plan.decisions`.
 5. **Must-visit is never dropped.** A must-visit bin is a mandatory node (no disjunction) in the VRP.
 6. **Skip means skip.** A bin under 40% is never in a route. It appears on the driver's skip list.
 7. **Capacity is never exceeded.** A full truck goes to the dump yard and continues.
@@ -161,7 +161,7 @@ These are decided. Do not "correct" them back.
 | PDF says | We do | Reason |
 |---|---|---|
 | Next.js + Leaflet 2D map | Vite + React + MapLibre **3D** map | Requirement for a professional 3D tracking interface |
-| About 50 bins | About **60 bins** in the local demo (`SEED_BIN_COUNT`, configurable). The design must scale to 150+ | Better coverage of 6 zones |
+| About 50 bins | About **45 bins per zone, 270 in total** in the local demo (`SEED_BIN_COUNT`, configurable). The design must scale to 150+ | A zone of ~45 bins at 120 kg each can clear the 2400 kg minimum load |
 | Cloud Functions, Pub/Sub, Firestore at the center | Local adapters first; same interfaces map to AWS SNS, DynamoDB and EventBridge | Must run on one laptop for the demo |
 | Multiple trucks and live GPS tracking were stretch / future | Multiple trucks and live truck movement are **core** | Needed for the 3D tracking demo |
 | Dashboard on Cloud Run | Local first; one EC2 instance running Docker Compose later | As above |

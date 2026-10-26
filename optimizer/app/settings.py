@@ -14,8 +14,8 @@ TIME_LIMIT_S = 10
 TRUCK_SPEED_KMH = 22
 SERVICE_SECONDS_PER_BIN = 60
 UNLOAD_SECONDS = 300
-# Max reload (dump yard) visits per vehicle in the model
-MAX_DUMP_VISITS_PER_VEHICLE = 5
+# ASSUMPTION: one shift is 8 h of driving, service and unloading, depot to depot
+SHIFT_SECONDS = 8 * 3600
 
 # Haversine fallback only: straight-line distance times this factor approximates roads
 HAVERSINE_ROAD_FACTOR = 1.4

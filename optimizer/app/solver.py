@@ -14,11 +14,17 @@ from .matrix import Matrix
 from .models import Dropped, InfeasibleError, OptimizeRequest, OptimizeResponse
 
 
-def _reload_node_count(total_demand: int, caps: list[int]) -> int:
-    if total_demand <= min(caps):
+def _reload_node_count(demands: list[int], caps: list[int]) -> int:
+    """Upper bound on useful dump-yard visits.
+
+    Any two consecutive loads together exceed the smallest capacity (otherwise they would
+    be one load), so loads <= 2 * total / cap + 1 per vehicle. A load also holds at least one bin.
+    """
+    total = sum(demands)
+    if total <= min(caps):
         return 0  # every vehicle can carry everything: no dump trip needed
-    needed = math.ceil(total_demand / min(caps)) + len(caps)
-    return min(settings.MAX_DUMP_VISITS_PER_VEHICLE * len(caps), needed)
+    by_weight = math.ceil(2 * total / min(caps))
+    return min(len(demands), by_weight) + len(caps)
 
 
 def solve(req: OptimizeRequest, matrix: Matrix) -> OptimizeResponse:
@@ -32,7 +38,7 @@ def solve(req: OptimizeRequest, matrix: Matrix) -> OptimizeResponse:
     caps = [int(v.capacity_kg) for v in vehicles]
     max_cap = max(caps)
     demands = demands_kg(req)
-    reloads = _reload_node_count(sum(demands), caps)
+    reloads = _reload_node_count(demands, caps)
     num_nodes = 1 + n + reloads  # node 0 depot, 1..n stops, then dump-yard copies
 
     def base(node: int) -> int:
@@ -42,6 +48,9 @@ def solve(req: OptimizeRequest, matrix: Matrix) -> OptimizeResponse:
 
     dist = [[matrix.distances_m[base(a)][base(b)] for b in range(num_nodes)] for a in range(num_nodes)]
     node_demand = [0] + demands + [-max_cap] * reloads
+
+    service = [0] + [settings.SERVICE_SECONDS_PER_BIN] * n + [settings.UNLOAD_SECONDS] * reloads
+    secs = [[matrix.durations_s[base(a)][base(b)] + service[a] for b in range(num_nodes)] for a in range(num_nodes)]
 
     manager = pywrapcp.RoutingIndexManager(num_nodes, len(vehicles), 0)
     routing = pywrapcp.RoutingModel(manager)
@@ -54,6 +63,12 @@ def solve(req: OptimizeRequest, matrix: Matrix) -> OptimizeResponse:
 
     def demand_cb(i: int) -> int:
         return node_demand[manager.IndexToNode(i)]
+
+    def time_cb(i: int, j: int) -> int:
+        return secs[manager.IndexToNode(i)][manager.IndexToNode(j)]
+
+    time_idx = routing.RegisterTransitCallback(time_cb)
+    routing.AddDimension(time_idx, 0, int(req.shift_limit_s), True, "Time")
 
     demand_idx = routing.RegisterUnaryTransitCallback(demand_cb)
     routing.AddDimensionWithVehicleCapacity(demand_idx, max_cap, caps, True, "Capacity")
@@ -73,13 +88,13 @@ def solve(req: OptimizeRequest, matrix: Matrix) -> OptimizeResponse:
         routing.AddDisjunction([manager.NodeToIndex(node)], 0)
 
     params = pywrapcp.DefaultRoutingSearchParameters()
-    params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PATH_CHEAPEST_ARC
+    params.first_solution_strategy = routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
     params.local_search_metaheuristic = routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
     params.time_limit.FromMilliseconds(int(req.time_limit_s * 1000))
 
     solution = routing.SolveWithParameters(params)
     if solution is None:
-        raise InfeasibleError("no route serves every must-visit stop within vehicle capacity")
+        raise InfeasibleError("no route serves every must-visit stop within vehicle capacity and the shift limit")
 
     routes = []
     visited: set[int] = set()

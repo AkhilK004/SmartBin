@@ -152,11 +152,12 @@ Request
     }
   ],
   "penalty_scale": 60,
-  "time_limit_s": 10
+  "time_limit_s": 10,
+  "shift_limit_s": 28800
 }
 ```
 
-`mandatory: true` = must-visit (no disjunction). `mandatory: false` = optional stop with drop penalty `round(priority × penalty_scale)`. Skip bins are never sent.
+`shift_limit_s` is optional (default 8 h, an assumption): the maximum duration of one vehicle's route, depot to depot, including service time. `mandatory: true` = must-visit (no disjunction). `mandatory: false` = optional stop with drop penalty `round(priority × penalty_scale)`. Skip bins are never sent.
 
 Response
 ```json
@@ -199,6 +200,7 @@ Same request shape; every stop is treated as mandatory and ordered in street ord
   "date": "2026-10-27",
   "generated_at": "2026-10-27T00:30:00Z",
   "due_zones": ["lashkar"],
+  "urgent_override_zones": [],
   "deferred_zones": [
     { "zone_id": "morar", "expected_load_kg": 1920, "min_load_kg": 2400, "next_collection_date": "2026-10-29" }
   ],
@@ -217,12 +219,13 @@ Same request shape; every stop is treated as mandatory and ordered in street ord
   "dropped_optional": [ { "bin_id": "B-009", "reason": "..." } ],
   "waiting": [ { "bin_id": "B-033", "zone_id": "morar", "fill_pct": 88.0, "reason": "standard bin, waits for zone day 2026-10-29" } ],
   "distance_source": "osrm",
+  "baseline": { "stops": 40, "distance_m": 32100, "duration_s": 14400, "vehicles_used": 2 },
   "decisions": ["Zone Morar deferred: expected load 1920 kg < 2400 kg (40% of 6000 kg)"],
   "error": null
 }
 ```
 
-`geometry` is a `[lng, lat]` polyline along roads (from OSRM `/route`). `error` is a string if the optimizer failed (the plan then has empty `routes`). `decisions` is the readable log required by CLAUDE.md §3.9.
+`geometry` is a `[lng, lat]` polyline along roads (from OSRM `/route`). `due_zones` lists every zone whose collection day is today (CLAUDE.md glossary), deferred ones included; `deferred_zones` is the subset skipped for low load. `urgent_override_zones` lists due zones below the minimum load that still got a primary run because they hold 3 or more urgent bins (they appear in neither `deferred_zones` nor the secondary routes). Secondary trucks take at most 2 urgent bins per zone, highest priority first; further urgent bins in a zone that is not due appear in `waiting` with a decision. `baseline` is the fixed-route comparison over every bin of all due zones (null if unavailable). `distance_source` is `null` when no route was computed, and `haversine_fallback` if any route used it. `waiting` holds must-visit bins that wait for their zone's day (standard bins), or urgent bins with no secondary truck. `error` is a string if the optimizer failed (the plan then has empty `routes`). `decisions` is the readable log required by CLAUDE.md §3.9.
 
 ---
 
@@ -289,8 +292,8 @@ The numbers above are examples of shape only. Real values are computed from simu
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | POST | `/ingest/readings` | `SensorReading`, array of them, or SNS envelope | 202 on accept, 400 on invalid |
-| POST | `/jobs/frequency` | none | recompute zone rates and calendars |
-| POST | `/jobs/daily` | optional `{ "date": "YYYY-MM-DD" }` | build and publish the daily plan |
+| POST | `/jobs/frequency` | none | recompute zone rates from history and rebuild calendars; returns `Zone[]` |
+| POST | `/jobs/daily` | none | roll calendars to today, build and publish the daily plan; 200 with the `Plan`, 502 with the `Plan` (its `error` set) if the optimizer failed |
 | GET | `/state` | none | full snapshot (same payload as `state:init`) |
 | GET | `/settings` | none | see Settings |
 | PUT | `/settings` | partial Settings | triggers re-plan on next `/jobs/daily` |
